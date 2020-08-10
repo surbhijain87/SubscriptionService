@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +21,10 @@ public class SubscriptionController {
 
 	@Autowired
 	private BooksClient bookClient;
+	
+	@Autowired
+	private KafkaTemplate<String, String> template;
+
 
 	public SubscriptionController(SubscriptionRepository repository) {
 		super();
@@ -47,6 +52,8 @@ public class SubscriptionController {
 
 		if (book.getAvailable() == 0) {
 			// book not available
+
+			template.send("NotificationTopic", book.getBookId(), request.getName());
 			throw new BookNotAvailableException(book.getBookId() + " " + book.getName());
 		}
 

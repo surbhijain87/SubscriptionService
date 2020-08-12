@@ -21,10 +21,9 @@ public class SubscriptionController {
 
 	@Autowired
 	private BooksClient bookClient;
-	
+
 	@Autowired
 	private KafkaTemplate<String, String> template;
-
 
 	public SubscriptionController(SubscriptionRepository repository) {
 		super();
@@ -53,13 +52,19 @@ public class SubscriptionController {
 		if (book.getAvailable() == 0) {
 			// book not available
 
-			template.send("NotificationTopic", book.getBookId(), request.getName());
+			if (request.getNotify().equals("yes")) {
+				String topic = "NotificationTopic" + book.getBookId();
+
+				System.out.println("Add to notifications" + topic);
+
+				template.send(topic, request.getName());
+			}
 			throw new BookNotAvailableException(book.getBookId() + " " + book.getName());
 		}
 
 		Subscription subscription = new Subscription(request.getName(), request.getBookId(), Instant.now(), null);
 		// decrease availability by calling book service
-		updateBookService(subscription.getBookId(), -1);
+		Book b = updateBookService(subscription.getBookId(), -1);
 
 		return repository.save(subscription);
 	}

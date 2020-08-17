@@ -2,14 +2,25 @@ package com.fis.casestudy.subscription;
 
 import java.time.Instant;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import javax.security.sasl.AuthenticationException;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -17,6 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 public class SubscriptionController {
 
+	
+	static Map<String , String> userNamePasswordMap = new HashMap<>();
+	
 	private SubscriptionRepository repository;
 
 	@Autowired
@@ -25,9 +39,24 @@ public class SubscriptionController {
 	@Autowired
 	private KafkaTemplate<String, String> template;
 
+	@Autowired
+	private AuthenticationManager authenticationManager;
+
+	@Autowired
+	private JwtTokenUtil jwtTokenUtil;
+
 	public SubscriptionController(SubscriptionRepository repository) {
 		super();
 		this.repository = repository;
+		userNamePasswordMap.put("John", "password123");
+		userNamePasswordMap.put("Bob", "password12378");
+	}
+
+	@RequestMapping(value = "subscriptions/authenticate", method = RequestMethod.POST)
+	public ResponseEntity<?> createAuthenticationToken(@RequestBody JwtRequest authenticationRequest) throws Exception {
+		authenticate(authenticationRequest.getUsername(), authenticationRequest.getPassword());
+		final String token = jwtTokenUtil.generateToken("username");
+		return ResponseEntity.ok(new JwtResponse(token));
 	}
 
 	@GetMapping("subscriptions")
@@ -83,5 +112,16 @@ public class SubscriptionController {
 
 	private Book queryBookService(String bookId) {
 		return bookClient.getBookById(bookId);
+	}
+	
+	private void authenticate(String username, String password) throws Exception {
+		
+		if(!userNamePasswordMap.containsKey(username)) {
+			throw new Exception("INVALID_CREDENTIALS", new AuthenticationException("Username doesnt exist"));
+		}
+		
+		if(!userNamePasswordMap.get(username).equals(password)) {
+			throw new Exception("INVALID_CREDENTIALS", new AuthenticationException("Invalid password"));
+		}
 	}
 }
